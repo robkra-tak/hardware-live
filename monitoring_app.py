@@ -6,6 +6,7 @@ import subprocess
 import signal
 import wmi
 from dotenv import load_dotenv
+import psutil
 
 
 # Initialize WMI client
@@ -15,10 +16,17 @@ load_dotenv()  # This will load the key-value pairs from .env into environment v
 
 # Start OpenHardwareMonitor in silent mode
 def start_ohm():
-    path_to_ohm = os.getenv("OHM_PATH")  # Get the path from environment variables
+    path_to_ohm = os.getenv("OHM_PATH")
     if not path_to_ohm:
         raise ValueError("OHM_PATH not found in .env file")
-    
+
+    # Check if OHM is already running
+    for process in psutil.process_iter(['pid', 'name']):
+        if process.info['name'] == 'OpenHardwareMonitor.exe':
+            print("OpenHardwareMonitor is already running.")
+            return None
+
+    # Start OHM if not running
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     return subprocess.Popen([path_to_ohm], startupinfo=startupinfo, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -28,8 +36,10 @@ def stop_ohm(process):
     os.kill(process.pid, signal.SIGTERM)
 
 def on_closing():
-    stop_ohm(ohm_process)
+    if ohm_process is not None:
+        stop_ohm(ohm_process)
     root.destroy()
+
 
 def fetch_system_details():
     # Fetching data using WMI and OpenHardwareMonitor
